@@ -1,0 +1,387 @@
+// Arquivo de configuração para SQLite (desenvolvimento local)
+// Este arquivo será usado quando o PostgreSQL não estiver disponível
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// Restaurantes
+model Restaurant {
+  id        String   @id @default(uuid())
+  name      String
+  logoUrl   String?  @map("logo_url")
+  address   String?  // SQLite não suporta JSON, usando String
+  phone     String?
+  email     String?
+  taxId     String?  @map("tax_id")
+  settings  String?  @default("{}") @map("settings") // SQLite não suporta JSON
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relações
+  users      User[]
+  categories Category[]
+  products   Product[]
+  areas      Area[]
+  tables     Table[]
+  orders     Order[]
+  invoices   Invoice[]
+  couriers   Courier[]
+
+  @@map("restaurants")
+}
+
+// Papéis de usuário
+model Role {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  permissions String?  @default("{}") @map("permissions") // SQLite não suporta JSON
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relações
+  users User[]
+
+  @@map("roles")
+}
+
+// Usuários
+model User {
+  id           String    @id @default(uuid())
+  restaurantId String    @map("restaurant_id")
+  roleId       String    @map("role_id")
+  name         String
+  email        String
+  password     String
+  active       Boolean   @default(true)
+  lastLogin    DateTime? @map("last_login")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  // Relações
+  restaurant      Restaurant       @relation(fields: [restaurantId], references: [id])
+  role            Role             @relation(fields: [roleId], references: [id])
+  tableSessions   TableSession[]
+  orders          Order[]
+  orderStatuses   OrderStatus[]
+  payments        Payment[]
+
+  @@unique([email, restaurantId])
+  @@map("users")
+}
+
+// Categorias de produtos
+model Category {
+  id           String   @id @default(uuid())
+  restaurantId String   @map("restaurant_id")
+  name         String
+  description  String?
+  imageUrl     String?  @map("image_url")
+  order        Int      @default(0)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relações
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
+  products   Product[]
+
+  @@map("categories")
+}
+
+// Produtos
+model Product {
+  id           String   @id @default(uuid())
+  restaurantId String   @map("restaurant_id")
+  categoryId   String   @map("category_id")
+  name         String
+  description  String?
+  price        Float    // SQLite usa Float em vez de Decimal
+  cost         Float?   // SQLite usa Float em vez de Decimal
+  imageUrl     String?  @map("image_url")
+  available    Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relações
+  restaurant    Restaurant     @relation(fields: [restaurantId], references: [id])
+  category      Category       @relation(fields: [categoryId], references: [id])
+  productImages ProductImage[]
+  orderItems    OrderItem[]
+
+  @@map("products")
+}
+
+// Imagens adicionais de produtos
+model ProductImage {
+  id        String   @id @default(uuid())
+  productId String   @map("product_id")
+  url       String
+  order     Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relações
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("product_images")
+}
+
+// Áreas do estabelecimento
+model Area {
+  id           String   @id @default(uuid())
+  restaurantId String   @map("restaurant_id")
+  name         String
+  description  String?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relações
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
+  tables     Table[]
+
+  @@map("areas")
+}
+
+// Mesas
+model Table {
+  id           String   @id @default(uuid())
+  restaurantId String   @map("restaurant_id")
+  areaId       String   @map("area_id")
+  number       String
+  seats        Int
+  status       String   @default("available")
+  qrCodeUrl    String?  @map("qr_code_url")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relações
+  restaurant    Restaurant     @relation(fields: [restaurantId], references: [id])
+  area          Area           @relation(fields: [areaId], references: [id])
+  tableSessions TableSession[]
+  orders        Order[]
+
+  @@map("tables")
+}
+
+// Sessões de mesa
+model TableSession {
+  id           String    @id @default(uuid())
+  tableId      String    @map("table_id")
+  userId       String    @map("user_id")
+  customerName String?   @map("customer_name")
+  peopleCount  Int?      @map("people_count")
+  status       String    @default("open")
+  openedAt     DateTime  @default(now()) @map("opened_at")
+  closedAt     DateTime? @map("closed_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  // Relações
+  table  Table    @relation(fields: [tableId], references: [id])
+  user   User     @relation(fields: [userId], references: [id])
+  orders Order[]
+  bills  Bill[]
+
+  @@map("table_sessions")
+}
+
+// Pedidos
+model Order {
+  id             String    @id @default(uuid())
+  restaurantId   String    @map("restaurant_id")
+  userId         String    @map("user_id")
+  tableId        String?   @map("table_id")
+  sessionId      String?   @map("session_id")
+  type           String    // table, delivery
+  status         String    @default("pending")
+  customerName   String?   @map("customer_name")
+  customerPhone  String?   @map("customer_phone")
+  customerEmail  String?   @map("customer_email")
+  address        String?   // SQLite não suporta JSON
+  subtotal       Float     // SQLite usa Float em vez de Decimal
+  serviceFee     Float?    @map("service_fee") // SQLite usa Float em vez de Decimal
+  deliveryFee    Float?    @map("delivery_fee") // SQLite usa Float em vez de Decimal
+  total          Float     // SQLite usa Float em vez de Decimal
+  paymentMethod  String?   @map("payment_method")
+  notes          String?
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  // Relações
+  restaurant   Restaurant    @relation(fields: [restaurantId], references: [id])
+  user         User          @relation(fields: [userId], references: [id])
+  table        Table?        @relation(fields: [tableId], references: [id])
+  tableSession TableSession? @relation(fields: [sessionId], references: [id])
+  orderItems   OrderItem[]
+  orderStatus  OrderStatus[]
+  delivery     Delivery?
+  invoice      Invoice?
+
+  @@map("orders")
+}
+
+// Itens de pedido
+model OrderItem {
+  id          String   @id @default(uuid())
+  orderId     String   @map("order_id")
+  productId   String   @map("product_id")
+  name        String
+  quantity    Int
+  unitPrice   Float    @map("unit_price") // SQLite usa Float em vez de Decimal
+  totalPrice  Float    @map("total_price") // SQLite usa Float em vez de Decimal
+  notes       String?
+  status      String   @default("pending")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relações
+  order   Order   @relation(fields: [orderId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("order_items")
+}
+
+// Histórico de status de pedido
+model OrderStatus {
+  id        String   @id @default(uuid())
+  orderId   String   @map("order_id")
+  status    String
+  notes     String?
+  userId    String   @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relações
+  order Order @relation(fields: [orderId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@map("order_status")
+}
+
+// Contas
+model Bill {
+  id           String   @id @default(uuid())
+  sessionId    String   @map("session_id")
+  restaurantId String   @map("restaurant_id")
+  subtotal     Float    // SQLite usa Float em vez de Decimal
+  serviceFee   Float    @map("service_fee") // SQLite usa Float em vez de Decimal
+  total        Float    // SQLite usa Float em vez de Decimal
+  status       String   @default("open")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relações
+  tableSession TableSession @relation(fields: [sessionId], references: [id])
+  billSplits   BillSplit[]
+  payments     Payment[]
+
+  @@map("bills")
+}
+
+// Divisões de conta
+model BillSplit {
+  id        String   @id @default(uuid())
+  billId    String   @map("bill_id")
+  name      String
+  amount    Float    // SQLite usa Float em vez de Decimal
+  paid      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relações
+  bill     Bill      @relation(fields: [billId], references: [id])
+  payments Payment[]
+
+  @@map("bill_splits")
+}
+
+// Pagamentos
+model Payment {
+  id        String   @id @default(uuid())
+  billId    String   @map("bill_id")
+  splitId   String?  @map("split_id")
+  method    String
+  amount    Float    // SQLite usa Float em vez de Decimal
+  notes     String?
+  userId    String   @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relações
+  bill      Bill       @relation(fields: [billId], references: [id])
+  billSplit BillSplit? @relation(fields: [splitId], references: [id])
+  user      User       @relation(fields: [userId], references: [id])
+
+  @@map("payments")
+}
+
+// Notas fiscais
+model Invoice {
+  id            String   @id @default(uuid())
+  restaurantId  String   @map("restaurant_id")
+  orderId       String   @unique @map("order_id")
+  fiscalId      String?  @map("fiscal_id")
+  accessKey     String?  @map("access_key")
+  customerName  String?  @map("customer_name")
+  customerTaxId String?  @map("customer_tax_id")
+  totalAmount   Float    @map("total_amount") // SQLite usa Float em vez de Decimal
+  issueDate     DateTime @map("issue_date")
+  status        String   @default("issued")
+  pdfUrl        String?  @map("pdf_url")
+  xmlUrl        String?  @map("xml_url")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relações
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
+  order      Order      @relation(fields: [orderId], references: [id])
+
+  @@map("invoices")
+}
+
+// Entregas
+model Delivery {
+  id            String    @id @default(uuid())
+  orderId       String    @unique @map("order_id")
+  courierId     String?   @map("courier_id")
+  status        String    @default("pending")
+  trackingCode  String?   @map("tracking_code")
+  estimatedTime Int?      @map("estimated_time")
+  startedAt     DateTime? @map("started_at")
+  deliveredAt   DateTime? @map("delivered_at")
+  notes         String?
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  // Relações
+  order   Order    @relation(fields: [orderId], references: [id])
+  courier Courier? @relation(fields: [courierId], references: [id])
+
+  @@map("deliveries")
+}
+
+// Entregadores
+model Courier {
+  id           String    @id @default(uuid())
+  restaurantId String    @map("restaurant_id")
+  name         String
+  phone        String
+  email        String?
+  vehicle      String?
+  licensePlate String?   @map("license_plate")
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  // Relações
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
+  deliveries Delivery[]
+
+  @@map("couriers")
+}

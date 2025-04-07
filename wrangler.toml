@@ -1,0 +1,25 @@
+name = "restaurant-saas-frontend"
+main = ".open-next/worker.js"
+compatibility_date = "2024-04-04"
+compatibility_flags = ["nodejs_compat"]
+
+# D1 Database Config
+[[d1_databases]]
+binding = "DB"
+database_name = "restaurant_saas_db"
+database_id = "D1" # O ID real seria gerado pelo Cloudflare
+migrations_dir = "./migrations"
+
+[[bindings]]
+type = "cache"
+name = "ASSETS"
+
+[site]
+bucket = ".next/static"
+
+[build]
+command = "pnpm build"
+
+# Configurações adicionais para desenvolvimento local
+[dev]
+port = 3000 
