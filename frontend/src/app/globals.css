@@ -76,6 +76,11 @@ body {
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
   }
+  
+  .light {
+    --primary: 229 47% 33%;
+    --primary-foreground: 0 0% 100%;
+  }
 }
 
 @layer base {
