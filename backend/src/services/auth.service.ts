@@ -118,16 +118,27 @@ export class AuthService {
       return false;
     }
     
-    // Verifica se o papel tem a permissão 'all' (acesso total)
-    const permissions = typeof role.permissions === 'string' 
-      ? JSON.parse(role.permissions) 
-      : role.permissions;
+    // Converte as permissões para objeto JavaScript se for string
+    let permissionsObj: Record<string, boolean> = {};
     
-    if (permissions && permissions.all === true) {
+    if (typeof role.permissions === 'string') {
+      try {
+        permissionsObj = JSON.parse(role.permissions);
+      } catch (e) {
+        return false;
+      }
+    } else if (role.permissions && typeof role.permissions === 'object') {
+      permissionsObj = role.permissions as unknown as Record<string, boolean>;
+    } else {
+      return false;
+    }
+    
+    // Verifica se o papel tem a permissão 'all' (acesso total)
+    if (permissionsObj.all === true) {
       return true;
     }
     
     // Verifica se o papel tem a permissão específica
-    return !!(permissions && permissions[permission] === true);
+    return permissionsObj[permission] === true;
   }
 }

@@ -57,7 +57,10 @@ export const changePasswordValidator = [
     .withMessage('Nova senha deve ser uma string')
     .isLength({ min: 6 })
     .withMessage('Nova senha deve ter pelo menos 6 caracteres')
-    .not()
-    .equals(body('currentPassword').value)
-    .withMessage('Nova senha deve ser diferente da senha atual')
+    .custom((value, { req }) => {
+      if (value === req.body.currentPassword) {
+        throw new Error('Nova senha deve ser diferente da senha atual');
+      }
+      return true;
+    })
 ];
