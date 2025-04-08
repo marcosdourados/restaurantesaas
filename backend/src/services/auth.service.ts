@@ -119,11 +119,15 @@ export class AuthService {
     }
     
     // Verifica se o papel tem a permissão 'all' (acesso total)
-    if (role.permissions && role.permissions.all === true) {
+    const permissions = typeof role.permissions === 'string' 
+      ? JSON.parse(role.permissions) 
+      : role.permissions;
+    
+    if (permissions && permissions.all === true) {
       return true;
     }
     
     // Verifica se o papel tem a permissão específica
-    return role.permissions && role.permissions[permission] === true;
+    return !!(permissions && permissions[permission] === true);
   }
 }
